@@ -20,7 +20,8 @@ async def analyze_and_store(request: ComplaintRequest):
 
         # 1. LLM 요약 및 분석 (Normalization)
         # Ollama가 응답할 때까지 기다립니다.
-        analysis = await llm_service.get_normalization(request.body)
+        body = request.title + "\n" + request.body
+        analysis = await llm_service.get_normalization(body)
         print(f"[*] 정규화 완료: {analysis}...")
 
         # 2. 벡터 추출 (Embedding)
