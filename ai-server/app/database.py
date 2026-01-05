@@ -4,9 +4,9 @@ import os
 
 # DB 연결 정보 (환경 변수 또는 .env 활용 권장)
 DB_CONFIG = {
-    "dbname": "your_db",
-    "user": "your_user",
-    "password": "your_password",
+    "dbname": "complaint_db",
+    "user": "postgres",
+    "password": os.getenv("POSTGRES_PASSWORD"),
     "host": "localhost",
     "port": 5432
 }
@@ -16,7 +16,7 @@ def save_normalization(complaint_id, analysis, embedding):
     1. 기존 데이터의 is_current를 false로 업데이트 
     2. 새로운 정규화 데이터 및 임베딩 벡터 저장 
     """
-    conn = psycopg2.connect(**DB_CONFIG)
+    conn = psycopg2.connect(**DB_CONFIG, client_encoding='UTF8')
     cur = conn.cursor()
     
     try:

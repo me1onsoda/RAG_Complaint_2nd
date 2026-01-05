@@ -2,8 +2,10 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from app.services import llm_service
 from app import database
+from app.services.llm_service import LLMService
 
 app = FastAPI(title="Complaint Analyzer AI")
+llm_service = LLMService()
 
 # Postman으로 보낼 데이터 구조 정의
 class ComplaintRequest(BaseModel):
@@ -18,7 +20,7 @@ async def analyze_and_store(request: ComplaintRequest):
         # 1. LLM 요약 및 분석 (Normalization)
         # Ollama가 응답할 때까지 기다립니다.
         analysis = await llm_service.get_normalization(request.body)
-        print(f"[*] 정규화 완료: {analysis['neutral_summary'][:20]}...")
+        print(f"[*] 정규화 완료: {analysis}...")
 
         # 2. 벡터 추출 (Embedding)
         # 요약본을 바탕으로 1536차원 벡터 생성
