@@ -69,3 +69,8 @@ class LLMService:
             return response.json()['embedding']
         else:
             raise Exception(f"Ollama Embedding Error: {response.text}")
+
+    async def get_embedding_with_answer(self, complaint, department, answer):
+        """민원, 부서명, 답변을 결합하여 벡터로 변환합니다."""
+        combined_text = f"민원: {complaint}\n부서명: {department}\n답변: {answer}"
+        return await self.get_embedding(combined_text)
