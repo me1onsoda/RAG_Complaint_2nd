@@ -1,4 +1,4 @@
-package com.smart.complaint.routing_system.applicant.service.Jwt;
+package com.smart.complaint.routing_system.applicant.service.jwt;
 
 import com.smart.complaint.routing_system.applicant.dto.OAuth2Attributes;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;

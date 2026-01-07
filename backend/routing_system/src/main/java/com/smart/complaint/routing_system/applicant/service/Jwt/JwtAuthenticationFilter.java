@@ -1,4 +1,4 @@
-package com.smart.complaint.routing_system.applicant.service.Jwt;
+package com.smart.complaint.routing_system.applicant.service.jwt;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
