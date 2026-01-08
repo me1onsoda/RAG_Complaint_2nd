@@ -1,6 +1,6 @@
 package com.smart.complaint.routing_system.applicant.repository;
 
-import com.smart.complaint.routing_system.applicant.entitiy.Complaint;
+import com.smart.complaint.routing_system.applicant.entity.Complaint;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ComplaintRepository extends JpaRepository<Complaint, Long>, ComplaintRepositoryCustom {
