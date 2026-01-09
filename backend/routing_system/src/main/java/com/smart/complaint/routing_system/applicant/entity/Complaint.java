@@ -21,6 +21,9 @@ public class Complaint {
     @GeneratedValue(strategy = GenerationType.IDENTITY) // BIGSERIAL 대응
     private Long id;
 
+    @Column(name = "applicant_id")
+    private String applicantId;
+
     @Column(name = "received_at", nullable = false) // DB는 snake_case, 자바는 camelCase
     private LocalDateTime receivedAt;
 

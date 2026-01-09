@@ -3,6 +3,7 @@ package com.smart.complaint.routing_system.applicant.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -24,6 +25,7 @@ import com.smart.complaint.routing_system.applicant.service.jwt.OAuth2SuccessHan
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
+@Profile("!dev")
 public class SecurityConfig {
 
     //*******CORS를 켜고, CorsConfigurationSource 필요******
@@ -88,7 +90,7 @@ public class SecurityConfig {
     @Order(2)
     public SecurityFilterChain publicFilterChain(HttpSecurity http) throws Exception {
         http
-                .securityMatcher("/api/auth/**", "/api/complaint/**", "/**") // 나머지 API들
+                .securityMatcher("/**")
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 // .cors(cors -> cors.configure(http))
@@ -99,8 +101,10 @@ public class SecurityConfig {
                 )
 
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/validate").authenticated()
-                        .requestMatchers("/api/auth/**").permitAll()
+                        // 로그인 관련 AP는 모두 허용
+                        .requestMatchers("/api/auth/**", "/oauth2/**", "/login/oauth2/**").permitAll()
+                        // 민원인 전용 API는 권한 필요
+                        .requestMatchers("/api/applicant/**").authenticated()
                         .anyRequest().authenticated()
                 )
 

@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: dev
+    active:
   application:
     name: routing_system
   docker:

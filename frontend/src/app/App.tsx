@@ -15,6 +15,9 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import ApplicantLoginPage from './components/applicant/ApplicantLoginPage';
 import ApplicantMainPage from './components/applicant/ApplicantMainPage';
 import LoginSuccess from './components/applicant/LoginSuccess';
+import { ApplicantComplaintListPage } from './components/applicant/ApplicantComplaintListPage';
+import { ApplicantComplaintForm } from './components/applicant/ApplicantComplaintForm';
+import ApplicantLogout from './components/ApplicantLogout';
 //import ComplaintForm from './ComplaintForm';
 
 type Page =
@@ -96,8 +99,11 @@ function AppContent() {
       <Routes>
         {/* 1. 민원인(Applicant) 페이지 경로 */}
         <Route path="/applicant/login" element={<ApplicantLoginPage />} />
+        <Route path="/applicant/logout" element={<ApplicantLogout />} />
         <Route path="/applicant/login-success" element={<LoginSuccess />} />
         <Route path="/applicant/main" element={<ApplicantMainPage />} />
+        <Route path="/applicant/complaint" element={<ApplicantComplaintListPage />} />
+        <Route path="/applicant/complaints/new" element={<ApplicantComplaintForm />} />
         {/* <Route path="/applicant/form" element={<ComplaintForm />} /> */}
       </Routes>
     );

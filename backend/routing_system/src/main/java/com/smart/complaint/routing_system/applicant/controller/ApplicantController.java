@@ -35,7 +35,30 @@ public class ApplicantController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/api/complaints")
+    // 사용자 로그인 후 main page 이동 시 로직
+    // 가장 최근에 넣은 미원 3개를 불러옴
+    @GetMapping("/api/applicant/complaints/top3")
+    public ResponseEntity<List<ComplaintDto>> getTop3RecentComplaints(@AuthenticationPrincipal String applicantId) {
+
+        System.out.println("현재 로그인한 사용자:" + applicantId);
+        // 현재 로그인한 사용자의 최근 3개 민원 조회
+        List<ComplaintDto> complaints = applicantService.getTop3RecentComplaints(applicantId);
+
+        return ResponseEntity.ok(complaints);
+    }
+
+    // 사용자의 모든 민원 조회, 키워드 검색 가능
+    @GetMapping("/api/applicant/complaints")
+    public ResponseEntity<List<ComplaintDto>> getAllComplaints(@AuthenticationPrincipal String applicantId, String keyword) {
+
+        System.out.println("현재 로그인한 사용자:" + applicantId);
+        // 현재 로그인한 사용자의 모든 민원 조회
+        List<ComplaintDto> complaints = applicantService.getAllComplaints(applicantId, keyword);
+
+        return ResponseEntity.ok(complaints);
+    }
+
+    @PostMapping("/api/applicant/complaints")
     public ResponseEntity<NormalizationResponse> sendComplaints(@AuthenticationPrincipal String applicantId,
             @RequestBody ComplaintDto request) {
 
@@ -51,14 +74,5 @@ public class ApplicantController {
         });
 
         return ResponseEntity.ok(null);
-    }
-
-    @GetMapping("/api/complaints")
-    public ResponseEntity<List<ComplaintDto>> getAllComplaints(@AuthenticationPrincipal String applicantId) {
-
-        // 현재 로그인한 사용자의 모든 민원 조회
-        List<ComplaintDto> complaints = applicantService.getAllComplaints(applicantId);
-
-        return ResponseEntity.ok(complaints);
     }
 }

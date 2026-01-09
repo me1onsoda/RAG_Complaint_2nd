@@ -28,6 +28,8 @@ public class QComplaint extends EntityPathBase<Complaint> {
 
     public final NumberPath<Long> answeredBy = createNumber("answeredBy", Long.class);
 
+    public final StringPath applicantId = createString("applicantId");
+
     public final StringPath body = createString("body");
 
     public final DateTimePath<java.time.LocalDateTime> closedAt = createDateTime("closedAt", java.time.LocalDateTime.class);
