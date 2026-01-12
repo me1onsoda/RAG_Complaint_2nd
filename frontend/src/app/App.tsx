@@ -103,7 +103,6 @@ function AppContent() {
         <Route path="/applicant/main" element={<ApplicantMainPage />} />
         <Route path="/applicant/complaint" element={<ApplicantComplaintListPage />} />
         <Route path="/applicant/complaints/new" element={<ApplicantComplaintCreatePage />} />
-        {/* <Route path="/applicant/form" element={<ComplaintForm />} /> */}
       </Routes>
     );
   }
