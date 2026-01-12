@@ -61,7 +61,7 @@ interface ComplaintDetailPageProps {
 const statusMap: Record<string, { label: string; color: string }> = {
   RECEIVED: { label: '접수', color: 'bg-blue-100 text-blue-800' },
   NORMALIZED: { label: '정규화', color: 'bg-purple-100 text-purple-800' },
-  RECOMMENDED: { label: '추천완료', color: 'bg-cyan-100 text-cyan-800' },
+  RECOMMENDED: { label: '재이관', color: 'bg-cyan-100 text-cyan-800' },
   IN_PROGRESS: { label: '처리중', color: 'bg-yellow-100 text-yellow-800' },
   CLOSED: { label: '종결', color: 'bg-green-100 text-green-800' },
 };
@@ -126,7 +126,7 @@ export function ComplaintDetailPage({ complaintId, onBack }: ComplaintDetailPage
     }, 2000);
   };
 
-  const handleSendChat = () => {
+  const handleSendChat = async() => {
     if (!chatInput.trim()) return;
 
     const userMessage = chatInput;
@@ -134,15 +134,65 @@ export function ComplaintDetailPage({ complaintId, onBack }: ComplaintDetailPage
     setChatInput('');
     setIsChatLoading(true);
 
-    setTimeout(() => {
-      const response = {
+    try {
+
+      // ID 파싱 로직
+      // 예: "C2026-0003" -> split('-') -> ["C2026", "0003"] -> parseInt("0003") -> 3
+      let numericId = complaintId; 
+      if (typeof complaintId === 'string' && complaintId.includes('-')) {
+          const parts = complaintId.split('-');
+          // 마지막 부분이 숫자인지 확인하고 변환
+          const lastPart = parts[parts.length - 1];
+          if (!isNaN(parseInt(lastPart))) {
+              numericId = parseInt(lastPart).toString(); // URL에 넣을 때는 문자열이어도 숫자로 된 문자열이면 OK
+          }
+      }
+      
+      console.log(`[*] 변환된 ID: ${complaintId} -> ${numericId}`); //확인용
+      
+      // 파이썬 서버로 실제 요청 전송 (POST)
+      // 주의: complaintId는 props로 받아온 값을 사용합니다.
+      const response = await fetch(`http://localhost:8000/api/complaints/${numericId}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: userMessage }),
+      });
+
+      const data = await response.json();
+
+      // 서버 응답 처리
+      if (data.status === 'success') {
+        // 성공 시: AI 답변 표시
+        const botResponse = {
+          role: 'assistant' as const,
+          content: data.result, // 백엔드에서 준 답변 텍스트
+          citations: [],        // (나중에 백엔드에서 근거 자료 보내주면 여기에 연결)
+        };
+        setChatMessages((prev) => [...prev, botResponse]);
+      } else {
+        // 백엔드 내부 에러 (예: DB 연결 실패) -> 에러 메시지를 말풍선으로 표시
+        const errorResponse = {
+          role: 'assistant' as const,
+          content: `⚠️ 처리 실패: ${data.message}`, 
+        };
+        setChatMessages((prev) => [...prev, errorResponse]);
+      }
+
+    } catch (error) {
+      // 4. 네트워크 통신 에러 (서버 꺼짐 등)
+      console.error("Chat API Error:", error);
+      const errorResponse = {
         role: 'assistant' as const,
-        content: 'AI 응답 예시입니다. (아직 연동 전)',
-        citations: [],
+        content: "🚫 서버와 연결할 수 없습니다. 백엔드가 켜져 있는지 확인해주세요.",
       };
-      setChatMessages((prev) => [...prev, response]);
-      setIsChatLoading(false);
-    }, 1000);
+      setChatMessages((prev) => [...prev, errorResponse]);
+    } finally {
+      setIsChatLoading(false); // 로딩 종료
+    }
+
+    
   };
 
   const suggestedPrompts = [
@@ -196,18 +246,23 @@ export function ComplaintDetailPage({ complaintId, onBack }: ComplaintDetailPage
             <span className="text-muted-foreground">접수일시: </span>
             <span>{complaint.receivedAt}</span>
           </div>
-          <div>
+          {/* <div>
             <span className="text-muted-foreground">주소: </span>
             <span>{complaint.address || '-'}</span>
           </div>
           <div>
             <span className="text-muted-foreground">업무군: </span>
             <Badge variant="outline">{complaint.category || '미지정'}</Badge>
-          </div>
+          </div> */}
           <div>
             <span className="text-muted-foreground">담당부서: </span>
             <span>{complaint.departmentName || '미배정'}</span>
+          </div>          
+          <div>
+            <span className="text-muted-foreground">담당자: </span>
+            <span>{complaint.departmentName || '미배정'}</span>
           </div>
+          
           <div>
             <span className="text-muted-foreground">사건: </span>
             {complaint.incidentId ? (
@@ -578,7 +633,7 @@ export function ComplaintDetailPage({ complaintId, onBack }: ComplaintDetailPage
                       <SelectItem value="processing">🟡 처리중 (임시저장)</SelectItem>
                       <SelectItem value="completed">🟢 처리 완료 (답변 발송)</SelectItem>
                       <SelectItem value="rejected">🔴 반려/불가</SelectItem>
-                      <SelectItem value="transfer">↪️ 타부서 이관</SelectItem>
+                      {/* <SelectItem value="transfer">↪️ 타부서 이관</SelectItem> */}
                     </SelectContent>
                   </Select>
                 </div>
