@@ -1,6 +1,6 @@
 import { springApi } from "../lib/springApi";
 
-export type ComplaintStatus = 'RECEIVED' | 'RECOMMENDED' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'CANCLED';
+export type ComplaintStatus = 'RECEIVED' | 'NORMALIZED' | 'RECOMMENDED' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'CANCELED';
 export type UrgencyLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 export type IncidentStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
 
@@ -23,38 +23,52 @@ export interface ComplaintDto {
   managerName?: string;
 }
 
-// 상세 조회용 DTO (백엔드 ComplaintDetailResponse와 매핑)
-export interface ComplaintDetailDto {
-  // 기본 정보
-  id: string;          // 화면 표시용 ID (예: C2026-0004)
-  originalId: number;  // 실제 DB ID
-  title: string;
-  body: string;        // 원문 내용
-  address: string;
+// [신규] 민원 이력 아이템 (부모/자식 공통)
+export interface ComplaintHistoryDto {
+  id: string; // "P-1" or "C-5"
+  originalId: number;
+  parent: boolean;
   receivedAt: string;
+  title: string;
+  body: string;
+  answer?: string;
+  answeredBy?: number;
   status: ComplaintStatus;
-  urgency: UrgencyLevel;
-  departmentName?: string; // 담당 부서
-  category?: string;       // 업무군
 
-  // 정규화 정보
+  // 정규화 정보 (부모만 있음)
   neutralSummary?: string;
   coreRequest?: string;
   coreCause?: string;
   targetObject?: string;
   keywords?: string[];
   locationHint?: string;
+}
+
+// 상세 조회용 DTO (백엔드 구조 변경 반영)
+export interface ComplaintDetailDto {
+  // 기본 정보
+  id: string;          // 화면 표시용 ID (예: C2026-0004)
+  originalId: number;  // 실제 DB ID
+  title: string;       // 대표 제목
+  address: string;
+  receivedAt: string;  // 최초 접수일
+  status: ComplaintStatus; // 대표 상태
+  urgency: UrgencyLevel;
+  departmentName?: string; // 담당 부서
+  category?: string;       // 업무군
+  managerName?: string;    // 담당자 이름
+
+  // [변경] 이력 리스트로 통합
+  history: ComplaintHistoryDto[];
 
   // 사건 정보
-  incidentId?: string;       // 화면 표시용 ID (예: I-2026-001)
+  incidentId?: string;       
   incidentTitle?: string;
   incidentStatus?: IncidentStatus;
   incidentComplaintCount?: number;
 
-  // 상세 페이지 기능용 필드
-  answeredBy?: number;   // 담당자 ID (권한 체크용)
-  managerName?: string;  // 담당자 이름
-  answer?: string;       // 답변 내용
+  // 기존 최상위 필드 호환성 (필요시 사용, 현재는 history에서 가져옴)
+  answeredBy?: number; // 대표 담당자 ID
 }
 
 // ID 파싱

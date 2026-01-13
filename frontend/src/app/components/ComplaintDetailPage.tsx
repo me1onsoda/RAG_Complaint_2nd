@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Loader2, FileText, Search as SearchIcon, Send, Sparkles, 
   FileCheck, ExternalLink, Save, Lock, UserCheck, RefreshCw, UserMinus, User, 
-  Check
+  Check, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -10,22 +10,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { Progress } from './ui/progress';
 import { ScrollArea } from './ui/scroll-area';
-import { Separator } from './ui/separator';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { toast } from 'sonner';
-import { AgentComplaintApi, ComplaintDetailDto } from '../../api/AgentComplaintApi';
+import { AgentComplaintApi, ComplaintDetailDto, ComplaintHistoryDto } from '../../api/AgentComplaintApi';
 
 interface ComplaintDetailPageProps {
   complaintId: string;
   onBack: () => void;
 }
 
-// 재이관 부서 목록
 const DEPARTMENTS = [
   { id: 3, name: '교통행정과' },
   { id: 4, name: '교통안전과' },
@@ -36,6 +32,7 @@ const statusMap: Record<string, { label: string; color: string }> = {
   NORMALIZED: { label: '정규화', color: 'bg-purple-100 text-purple-800' },
   RECOMMENDED: { label: '재이관', color: 'bg-cyan-100 text-cyan-800' },
   IN_PROGRESS: { label: '처리중', color: 'bg-yellow-100 text-yellow-800' },
+  RESOLVED: { label: '처리완료', color: 'bg-green-100 text-green-800' },
   CLOSED: { label: '종결', color: 'bg-green-100 text-green-800' },
 };
 
@@ -49,59 +46,46 @@ export function ComplaintDetailPage({ complaintId, onBack }: ComplaintDetailPage
   const [complaint, setComplaint] = useState<ComplaintDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // ★ 내 ID 상태
   const [myId, setMyId] = useState<number | null>(null);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string>("");
 
-  const [isNormalizing, setIsNormalizing] = useState(false);
-  
-  // 재이관 상태
   const [showRerouteDialog, setShowRerouteDialog] = useState(false);
   const [selectedTargetDept, setSelectedTargetDept] = useState<string>(''); 
   const [rerouteReason, setRerouteReason] = useState('');
 
-  // 채팅 상태
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string; citations?: any[] }>>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [selectedSource, setSelectedSource] = useState<any>(null);
 
-  // 답변 작성 상태
   const [answerContent, setAnswerContent] = useState('');
-  const [processStatus, setProcessStatus] = useState('processing');
   
-  // Mock Data
-  const similarCases = [
-    { id: 'C2025-8234', similarity: 92, date: '2025-11-15', department: '도로관리과', result: '보수 완료', summary: '역삼동 도로 파손 긴급 보수' },
-    { id: 'C2025-7891', similarity: 85, date: '2025-10-22', department: '도로관리과', result: '보수 완료', summary: '삼성동 도로 균열 보수' },
-    { id: 'C2025-7123', similarity: 78, date: '2025-09-08', department: '도로관리과', result: '보수 완료', summary: '대치동 도로 함몰 긴급 조치' },
-  ];
-
   const knowledgeSources = [
     { id: 'KB-001', type: '매뉴얼', title: '도로 유지보수 업무 매뉴얼', section: '제3장 긴급 보수', confidence: 95, snippet: '긴급도가 높은 도로 파손의 경우 접수 후 24시간 이내 현장 조사 및 임시 조치를 실시하고...' },
     { id: 'KB-002', type: '규정', title: '도로법 시행규칙', section: '제12조', confidence: 88, snippet: '도로관리청은 도로의 파손, 함몰 등으로 인하여 교통 안전에 지장을 초래할 우려가 있는 경우...' },
     { id: 'KB-003', type: '사례', title: '2025년 도로 파손 처리 사례집', section: 'Case #45', confidence: 82, snippet: '역삼동 유사 사례: 접수 후 4시간 내 현장 조사, 12시간 내 임시 보수 완료...' },
   ];
-
   const suggestedPrompts = ['관련 규정/매뉴얼 찾아줘', '유사 사례 결과 요약해줘', '처리 안내 문구(공문체) 초안 작성'];
 
-  // ★ 1. 초기 데이터 로딩 (병렬 처리)
   useEffect(() => {
     const initData = async () => {
       try {
         setLoading(true);
-        // 내 정보와 민원 정보를 동시에 가져옴
         const [meData, detailData] = await Promise.all([
-          AgentComplaintApi.getMe().catch(() => null), // 실패해도 null 처리
+          AgentComplaintApi.getMe().catch(() => null),
           AgentComplaintApi.getDetail(complaintId)
         ]);
 
         if (meData) setMyId(meData.id);
         setComplaint(detailData);
         
-        // ★ 저장된 답변 내용 불러오기
-        if (detailData.answer) {
-          setAnswerContent(detailData.answer);
+        // [로직] 가장 최신 민원(리스트의 마지막)을 기본 선택
+        if (detailData.history && detailData.history.length > 0) {
+            const latest = detailData.history[detailData.history.length - 1];
+            setSelectedHistoryId(latest.id);
+            if (latest.answer) setAnswerContent(latest.answer);
         }
+
       } catch (error) {
         console.error("데이터 로딩 실패", error);
         toast.error("민원 정보를 불러오지 못했습니다.");
@@ -112,12 +96,19 @@ export function ComplaintDetailPage({ complaintId, onBack }: ComplaintDetailPage
     initData();
   }, [complaintId]);
 
-  // --- 핸들러 함수들 ---
+  const handleHistorySelect = (h: ComplaintHistoryDto) => {
+      setSelectedHistoryId(h.id);
+      setAnswerContent(h.answer || '');
+  };
+
   const refetchDetail = async () => {
     try {
       const data = await AgentComplaintApi.getDetail(complaintId);
       setComplaint(data);
-      if (data.answer) setAnswerContent(data.answer);
+      if (selectedHistoryId) {
+          const current = data.history.find(h => h.id === selectedHistoryId);
+          if (current) setAnswerContent(current.answer || '');
+      }
     } catch (e) { console.error(e); }
   };
 
@@ -162,14 +153,6 @@ export function ComplaintDetailPage({ complaintId, onBack }: ComplaintDetailPage
     } catch (e) { toast.error("요청 실패"); }
   };
 
-  const handleNormalize = () => {
-    setIsNormalizing(true);
-    setTimeout(() => {
-      setIsNormalizing(false);
-      toast.success("정규화가 재실행되었습니다.");
-    }, 2000);
-  };
-
   const handleSendChat = async() => {
     if (!chatInput.trim()) return;
     const userMessage = chatInput;
@@ -205,18 +188,22 @@ export function ComplaintDetailPage({ complaintId, onBack }: ComplaintDetailPage
   if (loading) return <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
   if (!complaint) return <div>Data Not Found</div>;
 
-  // ★★★ [권한 체크 로직] ★★★
+  // [수정] 권한 체크 로직 복구 (Root answeredBy 사용)
   // answeredBy가 null이면 미배정
   const isUnassigned = !complaint.answeredBy;
   // 내 ID가 있고, 민원의 answeredBy와 같으면 내 것
   const isMine = (myId !== null) && (String(complaint.answeredBy) === String(myId));
   // 담당자는 있는데 내 것은 아님
   const isOthers = !isUnassigned && !isMine;
-  // 종결 여부
-  const isClosed = complaint.status === 'CLOSED' || complaint.status === 'RESOLVED';
   
-  // 편집 가능 여부: 내 것이고 종결 안 됨
-  const isEditable = isMine && !isClosed;
+  // 현재 선택된 민원 카드 객체
+  const selectedHistory = complaint.history.find(h => h.id === selectedHistoryId);
+  
+  // [편집 가능 여부 체크]
+  const isLatest = selectedHistoryId === complaint.history[complaint.history.length - 1].id;
+  const isSelectedClosed = selectedHistory?.status === 'CLOSED' || selectedHistory?.status === 'RESOLVED';
+  
+  const isEditable = isMine && isLatest && !isSelectedClosed;
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -239,14 +226,14 @@ export function ComplaintDetailPage({ complaintId, onBack }: ComplaintDetailPage
             </div>
           </div>
           
-          {/* ★ 상단 버튼 분기 */}
           <div className="flex gap-2">
-            {isUnassigned && !isClosed && (
+            {isUnassigned && !isSelectedClosed && (
               <Button onClick={handleAssign} className="bg-blue-600 hover:bg-blue-700">
                 <UserCheck className="w-4 h-4 mr-2" /> 담당하기
               </Button>
             )}
-            {isMine && !isClosed && (
+            {/* [수정] isMine 권한 복구되어 버튼 정상 노출 */}
+            {isMine && !isSelectedClosed && (
               <>
                 <Button variant="outline" onClick={() => setShowRerouteDialog(true)}>
                   <RefreshCw className="w-4 h-4 mr-2" /> 재이관 요청
@@ -259,7 +246,6 @@ export function ComplaintDetailPage({ complaintId, onBack }: ComplaintDetailPage
           </div>
         </div>
 
-        {/* 상세 정보 */}
         <div className="grid grid-cols-5 gap-4 text-sm">
           <div><span className="text-muted-foreground">접수일시: </span><span>{complaint.receivedAt}</span></div>
           <div><span className="text-muted-foreground">담당부서: </span><span>{complaint.departmentName || '미배정'}</span></div>          
@@ -278,114 +264,108 @@ export function ComplaintDetailPage({ complaintId, onBack }: ComplaintDetailPage
 
       <ResizablePanelGroup direction="horizontal" className="flex-1">
         
-        {/* [왼쪽] Tabs (기존 코드 유지) */}
+        {/* [왼쪽] Tabs */}
         <ResizablePanel defaultSize={75} minSize={40}>
           <Tabs defaultValue="normalization" className="h-full flex flex-col">
             <div className="border-b border-border px-6 bg-card flex-none h-14 flex items-center">
               <TabsList>
-                <TabsTrigger value="normalization">원문·정규화</TabsTrigger>
+                <TabsTrigger value="normalization">민원 타임라인</TabsTrigger>
                 <TabsTrigger value="incident">사건(군집)</TabsTrigger>
                 <TabsTrigger value="knowledge"><Sparkles className="h-4 w-4 mr-1" />지식·사례 검색</TabsTrigger>
               </TabsList>
             </div>
 
             <div className="flex-1 overflow-auto bg-gray-50/30">
-              {/* Tab 1 */}
-              <TabsContent value="normalization" className="m-0 h-full p-6">
-                <div className="grid grid-cols-2 gap-6 h-full">
-                  {/* 원문 카드 */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center justify-between">
-                        <span>원문</span>
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        {/* ★ DB Body 바인딩 */}
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{complaint.body}</p>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground mb-2">첨부파일</div>
-                        {/* ★ 첨부파일은 Mock 유지 */}
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2 p-2 border rounded text-sm bg-white">
-                              <FileText className="h-4 w-4 text-muted-foreground" />
-                              <span className="flex-1">현장사진_01.jpg</span>
-                              <Button variant="ghost" size="sm">보기</Button>
-                            </div>
-                            <div className="flex items-center gap-2 p-2 border rounded text-sm bg-white">
-                              <FileText className="h-4 w-4 text-muted-foreground" />
-                              <span className="flex-1">현장사진_02.jpg</span>
-                              <Button variant="ghost" size="sm">보기</Button>
-                            </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* 정규화 결과 카드 */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center justify-between">
-                        <span>정규화 결과</span>
-                        {/* <Button size="sm" onClick={handleNormalize} disabled={isNormalizing}>
-                           {isNormalizing ? (
-                             <>
-                               <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                               생성 중…
-                             </>
-                           ) : (
-                             <>
-                               <Sparkles className="h-3 w-3 mr-1" />
-                               정규화 재실행
-                             </>
-                           )}
-                        </Button> */}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {/* 데이터 유무 체크 */}
-                      {!complaint.neutralSummary ? (
-                        <div className="flex h-40 items-center justify-center text-muted-foreground text-sm">
-                          아직 분석된 데이터가 없습니다.
-                        </div>
-                      ) : (
-                        <div className="space-y-4 text-sm">
-                          <div>
-                            <div className="text-xs text-muted-foreground mb-1">중립 요약</div>
-                            <p className="p-3 bg-muted rounded">{complaint.neutralSummary}</p>
-                          </div>
-                          <div>
-                            <div className="text-xs text-muted-foreground mb-1">핵심 요구</div>
-                            <p>{complaint.coreRequest || '-'}</p>
-                          </div>
-                          <div>
-                            <div className="text-xs text-muted-foreground mb-1">원인 추정</div>
-                            <p>{complaint.coreCause || '-'}</p>
-                          </div>
-                          <div>
-                            <div className="text-xs text-muted-foreground mb-1">대상물</div>
-                            <p>{complaint.targetObject || '-'}</p>
-                          </div>
-                          <div>
-                            <div className="text-xs text-muted-foreground mb-2">키워드</div>
-                            <div className="flex flex-wrap gap-1">
-                              {complaint.keywords?.map((kw, idx) => (
-                                <Badge key={idx} variant="secondary">{kw}</Badge>
-                              ))}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-muted-foreground mb-1">위치 힌트</div>
-                            <p>{complaint.locationHint || '-'}</p>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
+              <TabsContent value="normalization" className="m-0 h-full p-6 space-y-4">
+                {complaint.history.map((h) => {
+                    const isSelected = selectedHistoryId === h.id;
+                    const isParent = h.parent;
+                    
+                    if (isSelected) {
+                        return (
+                            <Card key={h.id} className="border-blue-200 shadow-md">
+                                <CardHeader className="bg-blue-50/50 pb-2">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="text-base flex items-center gap-2 text-blue-800">
+                                            <ChevronDown className="w-4 h-4" />
+                                            {h.receivedAt} 
+                                            <span className="text-sm font-normal text-muted-foreground">| {isParent ? '최초 민원' : '추가 민원'}</span>
+                                        </CardTitle>
+                                        <Badge variant="outline">{statusMap[h.status]?.label}</Badge>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="pt-4">
+                                    {isParent ? (
+                                        // [수정] 최초 민원(Parent): 좌우 분할 뷰 + 정규화 결과 복구
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div>
+                                                <div className="text-xs font-semibold text-muted-foreground mb-2 flex items-center"><FileText className="w-3 h-3 mr-1"/> 원문</div>
+                                                <p className="text-sm leading-relaxed whitespace-pre-wrap">{h.body}</p>
+                                                <div className="mt-4 space-y-2">
+                                                    <div className="flex items-center gap-2 p-2 border rounded text-xs bg-white">
+                                                        <FileText className="h-3 w-3 text-muted-foreground" />
+                                                        <span className="flex-1">현장사진_01.jpg</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="border-l pl-6">
+                                                <div className="text-xs font-semibold text-muted-foreground mb-2 flex items-center"><Sparkles className="w-3 h-3 mr-1"/> AI 정규화 분석</div>
+                                                {!h.neutralSummary ? (
+                                                    <div className="text-sm text-muted-foreground">분석 데이터 없음</div>
+                                                ) : (
+                                                    <div className="space-y-3 text-sm">
+                                                        <div className="p-3 bg-slate-100 rounded text-slate-700">{h.neutralSummary}</div>
+                                                        <div className="grid grid-cols-2 gap-2 text-xs">
+                                                            <div><span className="text-muted-foreground">핵심요구:</span> {h.coreRequest}</div>
+                                                            <div><span className="text-muted-foreground">원인:</span> {h.coreCause}</div>
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {h.keywords?.map((k, i) => <Badge key={i} variant="secondary" className="text-xs px-1 py-0">{k}</Badge>)}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        // [수정] 추가 민원: 제목 + 내용 표시
+                                        <div>
+                                            <div className="mb-4">
+                                              <div className="text-xs font-semibold text-muted-foreground mb-1">제목</div>
+                                              <h3 className="font-semibold">{h.title}</h3>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs font-semibold text-muted-foreground mb-1">내용</div>
+                                                <p className="text-sm leading-relaxed whitespace-pre-wrap">{h.body}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        );
+                    } else {
+                        return (
+                            <Card 
+                                key={h.id} 
+                                className="cursor-pointer hover:bg-slate-50 transition-colors"
+                                onClick={() => handleHistorySelect(h)}
+                            >
+                                <CardContent className="p-4 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                                        <div className="text-sm font-medium">
+                                            {h.receivedAt}
+                                        </div>
+                                        <div className="text-sm text-muted-foreground">
+                                            {/* 접혔을 때 헤더 텍스트 */}
+                                            {h.parent ? `[최초] ${h.title}` : `[추가] ${h.title.substring(0, 30)}${h.title.length > 30 ? '...' : ''}`}
+                                        </div>
+                                    </div>
+                                    <Badge variant="outline" className="text-xs">{statusMap[h.status]?.label}</Badge>
+                                </CardContent>
+                            </Card>
+                        );
+                    }
+                })}
               </TabsContent>
 
               <TabsContent value="incident" className="m-0 h-full p-6">
@@ -409,11 +389,6 @@ export function ComplaintDetailPage({ complaintId, onBack }: ComplaintDetailPage
                               <p>{complaint.incidentComplaintCount}건</p>
                             </div>
                             <div>
-                              <span className="text-xs text-muted-foreground">행정동</span>
-                              {/* 주소에서 '동' 정보 추출 또는 간단히 처리 */}
-                              <p>{complaint.address ? complaint.address.split(' ')[1] : '-'}</p>
-                            </div>
-                            <div>
                               <span className="text-xs text-muted-foreground">업무군</span>
                               <p>{complaint.category || '도로/교통'}</p>
                             </div>
@@ -424,15 +399,12 @@ export function ComplaintDetailPage({ complaintId, onBack }: ComplaintDetailPage
                             연결된 사건(군집)이 없습니다.
                         </div>
                     )}
-                    {complaint.incidentId && <Button variant="outline" className="w-full">사건 상세 보기</Button>}
                   </CardContent>
                 </Card>
               </TabsContent>
 
-              {/* Tab 4 Chat */}
               <TabsContent value="knowledge" className="m-0 h-full">
                 <div className="grid grid-cols-3 h-full">
-                  {/* Chat Area */}
                   <div className="col-span-2 border-r border-border flex flex-col">
                     <ScrollArea className="flex-1 p-6">
                       {chatMessages.length === 0 ? (
@@ -440,107 +412,44 @@ export function ComplaintDetailPage({ complaintId, onBack }: ComplaintDetailPage
                           <SearchIcon className="h-12 w-12 text-muted-foreground" />
                           <div>
                             <h3 className="mb-2">규정/매뉴얼/유사사례를 자연어로 질문</h3>
-                            <p className="text-sm text-muted-foreground">
-                              질문을 입력하거나 아래 추천 버튼을 클릭하세요
-                            </p>
+                            <p className="text-sm text-muted-foreground">질문을 입력하거나 아래 추천 버튼을 클릭하세요</p>
                           </div>
                         </div>
                       ) : (
                         <div className="space-y-4">
                           {chatMessages.map((msg, idx) => (
                             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                              <div className={`max-w-[80%] rounded p-3 ${
-                                msg.role === 'user' 
-                                  ? 'bg-primary text-primary-foreground' 
-                                  : 'bg-muted'
-                              }`}>
+                              <div className={`max-w-[80%] rounded p-3 ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                                 <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                                {msg.citations && msg.citations.length > 0 && (
-                                  <div className="mt-3 pt-3 border-t border-border/40 space-y-1">
-                                    <div className="text-xs opacity-80">근거:</div>
-                                    {msg.citations.map((citation, i) => (
-                                      <div key={i} className="text-xs opacity-90">
-                                        • {citation.docName} · {citation.section} · p.{citation.page}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
                               </div>
                             </div>
                           ))}
-                          {isChatLoading && (
-                            <div className="flex justify-start">
-                              <div className="bg-muted rounded p-3">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              </div>
-                            </div>
-                          )}
+                          {isChatLoading && <div className="flex justify-start"><Loader2 className="h-4 w-4 animate-spin" /></div>}
                         </div>
                       )}
                     </ScrollArea>
-
-                    {/* Input Area */}
                     <div className="p-4 border-t border-border space-y-2">
-                      <div className="flex flex-wrap gap-2">
-                        {suggestedPrompts.map((prompt) => (
-                          <Button
-                            key={prompt}
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setChatInput(prompt);
-                              handleSendChat();
-                            }}
-                          >
-                            {prompt}
-                          </Button>
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="질문을 입력하세요"
-                          value={chatInput}
-                          onChange={(e) => setChatInput(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
-                          className="bg-input-background"
-                        />
-                        <Button onClick={handleSendChat} disabled={isChatLoading || !chatInput.trim()}>
-                          <Send className="h-4 w-4" />
-                        </Button>
-                      </div>
+                        <div className="flex flex-wrap gap-2">
+                            {suggestedPrompts.map(p => <Button key={p} variant="outline" size="sm" onClick={()=>{setChatInput(p); handleSendChat();}}>{p}</Button>)}
+                        </div>
+                        <div className="flex gap-2">
+                            <Input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleSendChat()} />
+                            <Button onClick={handleSendChat} disabled={isChatLoading}><Send className="w-4 h-4"/></Button>
+                        </div>
                     </div>
                   </div>
-
-                  {/* Sources Panel */}
                   <div className="bg-muted/30 p-4">
-                    <h3 className="text-sm mb-3">검색된 문서/청크</h3>
+                    <h3 className="text-sm mb-3">검색된 문서</h3>
                     <ScrollArea className="h-full">
-                      <div className="space-y-3">
-                        {knowledgeSources.map((source) => (
-                          <Card
-                            key={source.id}
-                            className="cursor-pointer hover:border-primary transition-colors"
-                            onClick={() => setSelectedSource(source)}
-                          >
-                            <CardContent className="p-3 space-y-2">
-                              <div className="flex items-start justify-between">
-                                <Badge variant="outline" className="text-xs">{source.type}</Badge>
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <FileCheck className="h-3 w-3" />
-                                  {source.confidence}%
-                                </div>
-                              </div>
-                              <h4 className="text-xs">{source.title}</h4>
-                              <p className="text-xs text-muted-foreground">{source.section}</p>
-                              <p className="text-xs text-muted-foreground line-clamp-2">{source.snippet}</p>
-                              <Button variant="ghost" size="sm" className="text-xs h-6 px-2">
-                                <ExternalLink className="h-3 w-3 mr-1" />
-                                미리보기
-                              </Button>
-                            </CardContent>
-                          </Card>
+                        {knowledgeSources.map(s => (
+                            <Card key={s.id} className="mb-2 cursor-pointer hover:border-primary" onClick={()=>setSelectedSource(s)}>
+                                <CardContent className="p-3 text-xs space-y-1">
+                                    <div className="flex justify-between"><Badge variant="outline">{s.type}</Badge> <span>{s.confidence}%</span></div>
+                                    <div className="font-bold">{s.title}</div>
+                                    <div className="text-muted-foreground line-clamp-2">{s.snippet}</div>
+                                </CardContent>
+                            </Card>
                         ))}
-                      </div>
                     </ScrollArea>
                   </div>
                 </div>
@@ -556,11 +465,11 @@ export function ComplaintDetailPage({ complaintId, onBack }: ComplaintDetailPage
           <div className="flex flex-col h-full">
             <div className="h-14 px-4 border-b flex items-center justify-between bg-card flex-none">
               <span className="font-semibold text-sm">답변 및 처리</span>
-              {isClosed ? <Badge className="bg-green-100 text-green-800">완료</Badge> : <Badge variant="outline">작성 중</Badge>}
+              {isSelectedClosed ? <Badge className="bg-green-100 text-green-800">완료</Badge> : <Badge variant="outline">작성 중</Badge>}
             </div>
 
             {/* 안내 배너 */}
-            {isUnassigned && !isClosed && (
+            {isUnassigned && !isSelectedClosed && (
               <div className="bg-blue-50 p-4 text-sm text-blue-800 flex items-start gap-3 border-b border-blue-100">
                 <Lock className="w-5 h-5 mt-0.5 shrink-0" />
                 <div><p className="font-medium">권한 없음</p><p className="text-xs mt-1"><b>담당자</b>만 작성이 가능합니다.</p></div>
@@ -572,27 +481,21 @@ export function ComplaintDetailPage({ complaintId, onBack }: ComplaintDetailPage
                   <span>현재 <b>{complaint.managerName}</b>님이 처리 중입니다.</span>
                </div>
             )}
-            {isClosed && (
+            {isSelectedClosed && (
                <div className="bg-blue-50 p-4 text-sm text-blue-800 flex items-start gap-3 border-b border-blue-100">
                   <Check className="w-5 h-5 shrink-0" />
-                  <span>이미 처리된 민원입니다.</span>
+                  <span>이미 처리된 건입니다.</span>
                </div>
             )}            
+            {!isLatest && (
+                <div className="bg-yellow-50 p-4 text-sm text-yellow-800 flex items-center gap-3 border-b border-yellow-100">
+                    <Lock className="w-4 h-4" />
+                    <span>이전 민원은 수정할 수 없습니다.</span>
+                </div>
+            )}
 
             <ScrollArea className="flex-1 p-4">
               <div className="space-y-6">
-                {/* <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">처리 결과</label>
-                  <Select value={processStatus} onValueChange={setProcessStatus} disabled={!isEditable}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="processing">🟡 처리중</SelectItem>
-                      <SelectItem value="completed">🟢 완료</SelectItem>
-                      <SelectItem value="rejected">🔴 반려</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div> */}
-                {/* <Separator /> */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                      <label className="text-sm font-medium text-muted-foreground">내용</label>

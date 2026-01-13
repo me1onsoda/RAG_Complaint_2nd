@@ -71,9 +71,6 @@ public class Complaint {
     @Column(name = "current_department_id")
     private Long currentDepartmentId;
 
-//    @Column(name = "incident_id")
-//    private Long incidentId;
-
     //AI 최초 예측 부서 (성능 측정용)
     @Column(name = "ai_predicted_department_id")
     private Long aiPredictedDepartmentId;
@@ -99,10 +96,11 @@ public class Complaint {
     @Column(name = "closed_at")
     private LocalDateTime closedAt;
 
-    @OneToMany(mappedBy = "parentComplaint", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    @OrderBy("createdAt ASC") // 오래된 순서대로 정렬
+    // [신규] 자식 민원 리스트 추가 (OneToMany)
+    // mappedBy는 ChildComplaint의 필드명 'parentComplaint'와 일치해야 함
     @Builder.Default
-    private List<ChildComplaint> children = new ArrayList<>();
+    @OneToMany(mappedBy = "parentComplaint", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<ChildComplaint> childComplaints = new ArrayList<>();
 
     // 담당자 지정 (Assign)
     public void assignManager(Long managerId) {

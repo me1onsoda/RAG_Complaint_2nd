@@ -31,6 +31,7 @@ const statusMap: Record<string, { label: string; color: string }> = {
   NORMALIZED: { label: '정규화', color: 'bg-purple-100 text-purple-800' },
   RECOMMENDED: { label: '추천완료', color: 'bg-cyan-100 text-cyan-800' },
   IN_PROGRESS: { label: '처리중', color: 'bg-yellow-100 text-yellow-800' },
+  RESOLVED: { label: '처리완료', color: 'bg-green-100 text-green-800' },
   CLOSED: { label: '종결', color: 'bg-green-100 text-green-800' },
 };
 

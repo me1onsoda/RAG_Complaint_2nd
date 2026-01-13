@@ -18,7 +18,7 @@ import com.smart.complaint.routing_system.applicant.domain.UserRole;
 import java.util.HashMap;
 import java.util.Map;
 
-@Tag(name = "Agent Auth API", description = "공무원/관리자 전용 인증 API (세션 방식)")
+@Tag(name = "공무원 인증 API", description = "공무원/관리자 전용 인증 API (세션 방식)")
 @RestController
 @RequestMapping("/api/agent") // 공무원 전용 주소
 @RequiredArgsConstructor

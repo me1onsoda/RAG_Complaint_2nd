@@ -2,6 +2,7 @@ package com.smart.complaint.routing_system.applicant.service;
 
 import com.smart.complaint.routing_system.applicant.dto.ComplaintAnswerRequest;
 import com.smart.complaint.routing_system.applicant.dto.ComplaintRerouteRequest;
+import com.smart.complaint.routing_system.applicant.entity.ChildComplaint;
 import com.smart.complaint.routing_system.applicant.entity.Complaint;
 import com.smart.complaint.routing_system.applicant.entity.ComplaintReroute;
 import com.smart.complaint.routing_system.applicant.repository.ComplaintRepository;
@@ -9,6 +10,9 @@ import com.smart.complaint.routing_system.applicant.repository.ComplaintRerouteR
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Comparator;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -34,19 +38,38 @@ public class ComplaintService {
 
     /**
      * 2. 답변 저장/전송 (Answer)
-     * - isTemporary=true: 답변 내용만 업데이트 (임시저장)
-     * - isTemporary=false: 답변 내용 업데이트 + 상태 종결 + 답변일시 기록
+     * [수정] 부모 ID로 들어왔지만, 실제 답변은 '가장 최신 민원(자식 포함)'에 저장해야 함.
      */
     public void saveAnswer(Long complaintId, ComplaintAnswerRequest request) {
         Complaint complaint = complaintRepository.findById(complaintId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 민원을 찾을 수 없습니다. ID=" + complaintId));
 
-        if (request.isTemporary()) {
-            // 임시 저장
-            complaint.updateAnswerDraft(request.getAnswer());
+        // 1) 자식 민원이 있는지 확인
+        List<ChildComplaint> children = complaint.getChildComplaints();
+
+        if (children != null && !children.isEmpty()) {
+            // 2) 자식이 있다면 가장 최신(ID가 큰 것 or CreatedAt이 최신) 자식을 찾음
+            // ID Auto Increment 가정이면 ID max가 최신
+            ChildComplaint latestChild = children.stream()
+                    .max(Comparator.comparing(ChildComplaint::getId))
+                    .orElseThrow();
+
+            // 3) 최신 자식에 답변 저장
+            if (request.isTemporary()) {
+                latestChild.updateAnswerDraft(request.getAnswer());
+            } else {
+                // 자식 민원 종결 처리 (담당자는 일단 부모 담당자를 따라가거나, 현재 세션 유저를 넣어야 함)
+                // 여기선 간단히 부모 담당자를 따라간다고 가정하거나, 컨트롤러에서 userId를 받아와야 함.
+                // 일단 null 대신 complaint.getAnsweredBy() 사용
+                latestChild.completeAnswer(request.getAnswer(), complaint.getAnsweredBy());
+            }
         } else {
-            // 답변 완료 및 종결 처리
-            complaint.completeAnswer(request.getAnswer());
+            // 4) 자식이 없으면 기존대로 부모(최초 민원)에 답변 저장
+            if (request.isTemporary()) {
+                complaint.updateAnswerDraft(request.getAnswer());
+            } else {
+                complaint.completeAnswer(request.getAnswer());
+            }
         }
     }
 

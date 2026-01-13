@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import jakarta.servlet.http.HttpSession;
@@ -21,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
+@Tag(name = "민원 API", description = "민원 관리 및 조회 API")
 @RestController
 @RequestMapping("/api/agent/complaints")
 @RequiredArgsConstructor
@@ -29,13 +31,14 @@ public class ComplaintController {
     private final ComplaintRepository complaintRepository;
     private final ComplaintService complaintService;
 
+    @Operation(summary = "민원 리스트 조회", description = "로그인한 사용자의 부서에 배정된 민원 리스트를 전부 조회합니다.")
     @GetMapping
     public List<ComplaintResponse> getComplaints(
             @ModelAttribute ComplaintSearchCondition condition
             // @AuthenticationPrincipal UserDetails userDetails
     ) {
-        // [임시] 로그인한 사람이 '3번 부서' 소속이라고 가정
-        // 나중에는 userDetails에서 진짜 부서 ID를 꺼내옵니다.
+        // 로그인한 사람이 '3번 부서' 소속이라고 가정
+        // 나중에는 userDetails에서 진짜 부서 ID
         Long myDepartmentId = 3L;
 
         return complaintRepository.search(myDepartmentId, condition);

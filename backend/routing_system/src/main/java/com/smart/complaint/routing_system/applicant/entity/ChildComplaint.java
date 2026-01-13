@@ -58,8 +58,9 @@ public class ChildComplaint {
     }
 
     // 답변 완료
-    public void completeAnswer(String finalAnswer) {
+    public void completeAnswer(String finalAnswer, Long userId) {
         this.answer = finalAnswer;
+        this.answeredBy = userId;
         this.status = ComplaintStatus.RESOLVED; // or CLOSED
         this.closedAt = LocalDateTime.now();
     }
