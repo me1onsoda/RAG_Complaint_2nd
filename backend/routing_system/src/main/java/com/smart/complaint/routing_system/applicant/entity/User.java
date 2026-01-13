@@ -6,13 +6,17 @@ import org.hibernate.type.SqlTypes;
 import com.smart.complaint.routing_system.applicant.domain.UserRole;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
 @Table(name = "users")
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor(access = AccessLevel.PROTECTED) // JPA용
+@AllArgsConstructor(access = AccessLevel.PRIVATE) // 빌더용 (외부 노출 차단)
+@Builder
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,20 +39,7 @@ public class User {
     @Column(nullable = false)
     private UserRole role;
 
-    // 테스트용 생성자 (회원가입 로직)
-    public User(String username, String password, String displayName, UserRole role) {
-        this.username = username;
+    public void changePassword(String password) {
         this.password = password;
-        this.displayName = displayName;
-        this.role = role;
-    }
-
-    // TODO: Builder 권유
-    public User(String username, String password, String displayName, String email, UserRole role) {
-        this.username = username;
-        this.password = password;
-        this.displayName = displayName;
-        this.email = email;
-        this.role = role;
     }
 }

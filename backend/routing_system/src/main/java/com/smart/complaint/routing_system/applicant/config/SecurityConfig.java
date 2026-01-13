@@ -101,9 +101,9 @@ public class SecurityConfig {
                                                 // 1. 로그인 관련 허용
                                                 .requestMatchers("/api/auth/**", "/oauth2/**", "/login/oauth2/**")
                                                 .permitAll()
-                                                // 2. 회원가입 및 중복 확인 API 허용 TODO: id 찾기, pw 찾기 등도 여기에 추가
+                                                // 2. 회원가입 및 중복 확인 API 허용
                                                 .requestMatchers("/api/applicant/signup", "/api/applicant/check-id",
-                                                                "/api/applicant/login")
+                                                                "/api/applicant/login", "/api/applicant/userinfo", "/api/applicant/newpw")
                                                 .permitAll()
                                                 // 민원인 전용 API는 권한 필요
                                                 .requestMatchers("/api/applicant/**").authenticated()

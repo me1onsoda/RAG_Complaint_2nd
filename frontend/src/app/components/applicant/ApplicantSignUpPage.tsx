@@ -115,8 +115,11 @@ export default function ApplicantSignUpPage({ onGoBack, onSignupSuccess }: Signu
       await axios.post(`http://localhost:8080/api/applicant/signup`, {
         userId: userId,
         password: password,
-        displayName: firstName + lastName,
-        email: email
+        displayName: lastName + firstName,
+        email: email,
+      },
+      { // 3번째 인자: Config
+        headers: { 'CROSS-KEY': 'my-secret-key-123' }
       });
 
       Swal.close();

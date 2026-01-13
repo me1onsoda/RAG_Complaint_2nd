@@ -1,6 +1,9 @@
 package com.smart.complaint.routing_system.applicant.service;
 
+import java.security.SecureRandom;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.smart.complaint.routing_system.applicant.repository.ComplaintRepository;
 import com.smart.complaint.routing_system.applicant.repository.UserRepository;
@@ -10,6 +13,9 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.commons.lang3.RandomStringUtils;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -30,13 +36,25 @@ public class ApplicantService {
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder encoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final EmailService emailService;
 
     @Transactional
-    public String applicantSignUp(UserLoginRequest loginRequest) {
+    public String applicantSignUp(UserLoginRequest loginRequest, String key) {
+
+        log.info(key);
+        if (!"my-secret-key-123".equals(key)) {
+            log.warn("비정상적인 접근 차단 (잘못된 서비스 키)");
+            throw new BusinessException(ErrorMessage.NOT_ALLOWED);
+        }
 
         String hashedPassword = encoder.encode(loginRequest.password());
-        User user = new User(loginRequest.userId(), hashedPassword, loginRequest.displayName(), loginRequest.email(),
-                UserRole.CITIZEN);
+        User user = User.builder()
+                .username(loginRequest.userId())
+                .password(hashedPassword)
+                .displayName(loginRequest.displayName())
+                .email(loginRequest.email())
+                .role(UserRole.CITIZEN)
+                .build();
         userRepository.findByUsername(loginRequest.userId()).ifPresent(existingUser -> {
             log.info("중복된 사용자 아이디: " + loginRequest.userId());
             throw new BusinessException(ErrorMessage.USER_DUPLICATE);
@@ -66,6 +84,59 @@ public class ApplicantService {
             throw new BusinessException(ErrorMessage.USER_DUPLICATE);
         }
         log.info("사용 가능한 아이디: " + userId);
+        return true;
+    }
+
+    public String getUserIdByEmail(String email) {
+
+        log.info(email + "사용자 아이디 찾기");
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException(ErrorMessage.USER_NOT_FOUND));
+
+        String visible = user.getUsername().substring(0, 3);
+        String masked = "*".repeat(user.getUsername().length() - 3);
+
+        return visible + masked;
+    }
+
+    public String generateTemporaryPassword() {
+        final String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+        SecureRandom random = new SecureRandom();
+        StringBuilder sb = new StringBuilder();
+
+        // 10자리 생성
+        for (int i = 0; i < 10; i++) {
+            int index = random.nextInt(chars.length());
+            sb.append(chars.charAt(index));
+        }
+
+        String password = sb.toString();
+
+        // 검증 로직: 규칙에 맞지 않으면 다시 생성(재귀)하거나 보완 로직 추가
+        if (!password.matches("^(?=.*[A-Za-z])(?=.*\\d)(?=.*[!@#$%^&*])[A-Za-z\\d!@#$%^&*]{8,}$")) {
+            return generateTemporaryPassword();
+        }
+
+        return password;
+    }
+
+    @Transactional
+    public Boolean updatePassword(String email) {
+
+        String newRandomPw = generateTemporaryPassword();
+        // 2. 사용자 엔티티 조회
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException(ErrorMessage.USER_NOT_FOUND));
+
+        // 3. 비밀번호 암호화 후 엔티티 수정
+        // (Spring Security의 PasswordEncoder를 주입받아 사용해야 로그인 시 인증 가능)
+        String encodedPassword = encoder.encode(newRandomPw);
+        user.changePassword(encodedPassword);
+        // save 없어도 transactional 어노테이션으로 자동 적용
+
+        // 4. 이메일 발송
+        emailService.sendTemporaryPassword(email, newRandomPw);
+
         return true;
     }
 

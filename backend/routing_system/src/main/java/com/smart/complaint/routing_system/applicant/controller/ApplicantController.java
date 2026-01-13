@@ -6,7 +6,7 @@ import com.smart.complaint.routing_system.applicant.dto.UserLoginRequest;
 import com.smart.complaint.routing_system.applicant.dto.NormalizationResponse;
 import com.smart.complaint.routing_system.applicant.service.AiService;
 import com.smart.complaint.routing_system.applicant.service.ApplicantService;
-import com.smart.complaint.routing_system.applicant.service.jwt.JwtTokenProvider;
+import com.smart.complaint.routing_system.applicant.service.EmailService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -15,6 +15,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -27,18 +28,20 @@ public class ApplicantController {
 
     private final AiService aiService;
     private final ApplicantService applicantService;
-    private final JwtTokenProvider jwtTokenProvider;
+    private final EmailService emailService;
 
+    // 회원가입 엔드포인트
     @PostMapping("api/applicant/signup")
-    public ResponseEntity<?> applicantSignUp(@RequestBody UserLoginRequest loginRequest) {
+    public ResponseEntity<String> applicantSignUp(@RequestBody UserLoginRequest loginRequest, 
+        @RequestHeader(value = "CROSS-KEY", required = true) String key) {
 
-        String result = applicantService.applicantSignUp(loginRequest);
+        String result = applicantService.applicantSignUp(loginRequest, key);
 
         return ResponseEntity.ok(result);
     }
 
     @PostMapping("api/applicant/login")
-    public ResponseEntity<?> applicantLogin(@RequestBody UserLoginRequest loginRequest) {
+    public ResponseEntity<Map<String, String>> applicantLogin(@RequestBody UserLoginRequest loginRequest) {
 
         // 서비스에서 토큰을 직접 받아옵니다. 실패 시 ExceptionHandler가 처리하므로 코드가 간결해집니다.
         String token = applicantService.applicantLogin(loginRequest);
@@ -48,13 +51,29 @@ public class ApplicantController {
     }
 
     @PostMapping("api/applicant/check-id")
-    public ResponseEntity<?> checkUserIdAvailability(@RequestBody UserLoginRequest loginRequest) {
+    public ResponseEntity<Boolean> checkUserIdAvailability(@RequestBody UserLoginRequest loginRequest) {
 
         boolean isAvailable = applicantService.isUserIdAvailable(loginRequest.userId());
 
         return ResponseEntity.ok(isAvailable);
     }
 
+    @PostMapping("/api/applicant/userinfo")
+    public ResponseEntity<Map<String, String>> getUserInfo(@RequestBody UserLoginRequest loginRequest) {
+
+        String userId = applicantService.getUserIdByEmail(loginRequest.email());
+
+        return ResponseEntity.ok(Map.of("userId", userId));
+    }
+
+    @PostMapping("/api/applicant/newpw")
+    public ResponseEntity<Map<String, String>> postMethodName(@RequestBody UserLoginRequest loginRequest) {
+        
+        applicantService.updatePassword(loginRequest.email());
+        
+        return ResponseEntity.ok(null);
+    }
+    
     // 토큰 유효성 검사 엔드포인트
     @GetMapping("/api/auth/validate")
     public ResponseEntity<?> validateToken(@AuthenticationPrincipal String providerId) {
