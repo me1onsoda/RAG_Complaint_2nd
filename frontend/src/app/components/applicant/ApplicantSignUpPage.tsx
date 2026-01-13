@@ -118,9 +118,9 @@ export default function ApplicantSignUpPage({ onGoBack, onSignupSuccess }: Signu
         displayName: lastName + firstName,
         email: email,
       },
-      { // 3번째 인자: Config
-        headers: { 'CROSS-KEY': 'my-secret-key-123' }
-      });
+        { // 3번째 인자: Config
+          headers: { 'CROSS-KEY': 'my-secret-key-123' }
+        });
 
       Swal.close();
 
@@ -143,6 +143,10 @@ export default function ApplicantSignUpPage({ onGoBack, onSignupSuccess }: Signu
       }
       Swal.fire({ icon: 'error', title: '가입 실패', text: msg });
     }
+  };
+
+  const handleCancel = () => {
+      navigate("/applicant/login"); 
   };
 
   return (
@@ -322,16 +326,13 @@ export default function ApplicantSignUpPage({ onGoBack, onSignupSuccess }: Signu
               회원가입 완료
             </Button>
 
-            {onGoBack && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onGoBack}
-                className="w-full h-14 text-lg"
-              >
-                취소
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              onClick={handleCancel}
+              className="w-full h-14 text-lg"
+            >
+              취소
+            </Button>
           </div>
 
           {/* Helper Text */}

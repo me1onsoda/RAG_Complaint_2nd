@@ -1,12 +1,9 @@
 package com.smart.complaint.routing_system.applicant.controller;
 
 import com.smart.complaint.routing_system.applicant.dto.ComplaintDto;
-import com.smart.complaint.routing_system.applicant.dto.ComplaintSearchResult;
 import com.smart.complaint.routing_system.applicant.dto.UserLoginRequest;
 import com.smart.complaint.routing_system.applicant.dto.UserSignUpDto;
-import com.smart.complaint.routing_system.applicant.dto.NormalizationResponse;
 import com.smart.complaint.routing_system.applicant.dto.UserEmailDto;
-import com.smart.complaint.routing_system.applicant.service.AiService;
 import com.smart.complaint.routing_system.applicant.service.ApplicantService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,7 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
-import org.springframework.web.bind.annotation.RequestParam;
 
 
 // 민원인 컨트롤러

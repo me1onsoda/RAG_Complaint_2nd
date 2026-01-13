@@ -68,6 +68,10 @@ export default function ApplicantFindIdPage({ onGoBack, onGoToResetPassword }: F
     navigate('/applicant/login');
   };
 
+  const handleCancel = () => {
+      navigate("/applicant/login"); 
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6 py-12">
       <div className="w-full max-w-2xl bg-white rounded-lg shadow-md p-8">
@@ -140,16 +144,13 @@ export default function ApplicantFindIdPage({ onGoBack, onGoToResetPassword }: F
                 {isSearching ? '검색 중...' : '아이디 찾기'}
               </Button>
 
-              {onGoBack && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onGoBack}
-                  className="w-full h-14 text-lg"
-                >
-                  취소
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                className="w-full h-14 text-lg"
+              >
+                취소
+              </Button>
             </div>
           </div>
         ) : (
