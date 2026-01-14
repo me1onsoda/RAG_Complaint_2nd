@@ -1,11 +1,15 @@
 package com.smart.complaint.routing_system.applicant.entity;
 
 import com.smart.complaint.routing_system.applicant.domain.ComplaintStatus;
-import com.smart.complaint.routing_system.applicant.domain.UrgencyLevel;
+
+import com.smart.complaint.routing_system.applicant.domain.Tag;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -21,14 +25,19 @@ public class Complaint {
     @GeneratedValue(strategy = GenerationType.IDENTITY) // BIGSERIAL 대응
     private Long id;
 
-    @Column(name = "received_at", nullable = false) // DB는 snake_case, 자바는 camelCase
-    private LocalDateTime receivedAt;
+    @Column(name = "applicant_id")
+    private Long applicantId;
 
     @Column(length = 200, nullable = false)
     private String title;
 
     @Column(columnDefinition = "TEXT", nullable = false) // PostgreSQL TEXT 타입 매핑
     private String body;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tag", nullable = false, columnDefinition = "tag_type")
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    private Tag tag;
 
     // DB 컬럼명은 그대로 두고, 자바 변수명은 올바르게 수정해서 매핑
     @Column(name = "answerd_by")
@@ -58,13 +67,9 @@ public class Complaint {
     // Enum 매핑 (String으로 저장/조회)
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, columnDefinition = "complaint_status")
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Builder.Default
     private ComplaintStatus status = ComplaintStatus.RECEIVED;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "urgency", nullable = false, columnDefinition = "urgency_level")
-    @Builder.Default
-    private UrgencyLevel urgency = UrgencyLevel.MEDIUM;
 
     @Column(name = "current_department_id")
     private Long currentDepartmentId;
@@ -85,6 +90,9 @@ public class Complaint {
 
     @Column(name = "incident_link_score", precision = 6, scale = 4)
     private BigDecimal incidentLinkScore;
+
+    @Column(name = "received_at", nullable = false) // DB는 snake_case, 자바는 camelCase
+    private LocalDateTime receivedAt;
 
     @CreationTimestamp
     @Column(name = "created_at")
