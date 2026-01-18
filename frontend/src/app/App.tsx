@@ -229,7 +229,7 @@ function AppContent() {
               <AdminDashboard />
             )}
             {currentPage.type === 'reroute-requests' && (
-              <RerouteRequestsPage />
+              <RerouteRequestsPage userRole={userRole} />
             )}
             {currentPage.type === 'knowledge-base' && (
               <KnowledgeBaseListPage onViewDetail={handleViewKnowledgeBaseDetail} />
