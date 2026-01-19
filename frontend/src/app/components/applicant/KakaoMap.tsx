@@ -27,8 +27,8 @@ const KakaoMap = ({ address, onLocationChange, complaints, mapView, showSurgeOnl
 
     kakao.maps.load(() => {
       const options = {
-        center: new kakao.maps.LatLng(37.5358, 127.1325), // 기본 중심지
-        level: 6,
+        center: new kakao.maps.LatLng(37.5301, 127.1238), // 기본 중심지
+        level: 5,
       };
       const mapInstance = new kakao.maps.Map(mapContainer.current, options);
 

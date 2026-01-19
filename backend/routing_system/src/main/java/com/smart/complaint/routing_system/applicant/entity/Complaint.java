@@ -161,4 +161,8 @@ public class Complaint {
         this.status = ComplaintStatus.IN_PROGRESS;
     }
 
+    public void cancelComplaint() {
+        this.status = ComplaintStatus.CANCELED;
+    }
+
 }
