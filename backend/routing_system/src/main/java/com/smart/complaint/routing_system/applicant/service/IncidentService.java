@@ -1,6 +1,5 @@
 package com.smart.complaint.routing_system.applicant.service;
 
-import com.smart.complaint.routing_system.applicant.entity.Complaint;
 import com.smart.complaint.routing_system.applicant.entity.Incident;
 import com.smart.complaint.routing_system.applicant.repository.IncidentRepository;
 import lombok.RequiredArgsConstructor;
