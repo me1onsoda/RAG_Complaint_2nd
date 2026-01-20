@@ -194,33 +194,25 @@ def search_laws_by_id(complaint_id: int, limit: int = 3) -> List[Dict]:
         cur.close()
         conn.close()
 
+
 def search_laws_by_text(embedding_vector: List[float], limit: int = 3, keyword: str = None) -> List[Dict]:
-    """[수동 모드] 텍스트 임베딩 기준 법령 검색"""
+    """[수동 모드] 텍스트 임베딩 기준 법령 검색 (키워드 필터 제거 버전)"""
     conn = get_db_connection()
     if not conn: return []
     cur = conn.cursor()
-    
+
     try:
-        if keyword:
-            query = """
-            SELECT d.title, lc.article_no, lc.chunk_text, (lc.embedding <=> %s::vector) as distance
-            FROM law_chunks lc
-            JOIN law_documents d ON lc.document_id = d.id
-            WHERE lc.chunk_text ILIKE %s 
-            ORDER BY distance ASC
-            LIMIT %s;
-            """
-            cur.execute(query, (embedding_vector, f"%{keyword}%", limit))
-        else:
-            query = """
-            SELECT d.title, lc.article_no, lc.chunk_text, (lc.embedding <=> %s::vector) as distance
-            FROM law_chunks lc
-            JOIN law_documents d ON lc.document_id = d.id
-            ORDER BY distance ASC
-            LIMIT %s;
-            """
-            cur.execute(query, (embedding_vector, limit))
-            
+        # [수정됨] keyword가 있어도 ILIKE로 필터링하지 않고, 순수 벡터 유사도로만 검색합니다.
+        # 이유: 사용자가 문장으로 질문하면 ILIKE 매칭이 0건이 되기 때문입니다.
+        query = """
+        SELECT d.title, lc.article_no, lc.chunk_text, (lc.embedding <=> %s::vector) as distance
+        FROM law_chunks lc
+        JOIN law_documents d ON lc.document_id = d.id
+        ORDER BY distance ASC
+        LIMIT %s;
+        """
+        cur.execute(query, (embedding_vector, limit))
+
         return _parse_results(cur.fetchall(), type="law")
     finally:
         cur.close()

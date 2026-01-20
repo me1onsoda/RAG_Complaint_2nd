@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
-from app.services import llm_service
 from app import database
 from app.services.llm_service import LLMService
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,6 +33,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+my_ai_bot = LLMService()
+
 # 테스트
 @app.get("/")
 async def root():
@@ -53,7 +54,7 @@ async def chat_with_ai(complaint_id: int, request: ChatRequest):
     2. 채팅창 입력 -> action='chat', query='사용자 입력값'
     """
     try:
-        result = await llm_service.generate_response(
+        result = await my_ai_bot.generate_response(
             complaint_id=complaint_id,
             user_query=request.query,
             action=request.action
