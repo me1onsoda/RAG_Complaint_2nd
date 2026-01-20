@@ -276,3 +276,96 @@ def _parse_results(rows: List[tuple], type: str = "case") -> List[Dict[str, Any]
                 "similarity": similarity_score
             })
     return results
+
+def get_reference_answer(complaint_id: int) -> Optional[str]:
+    """
+    1. 현재 민원의 routing_rank JSON에서 'related_case' 텍스트 추출
+    2. 그 텍스트와 core_request가 일치하는 과거 민원 찾기
+    3. 과거 민원의 답변(answer) 반환
+    """
+    conn = get_db_connection()
+    if not conn: return None
+
+    try:
+        with conn.cursor() as cur:
+            # 1단계: 현재 민원의 routing_rank 조회
+            cur.execute(
+                "SELECT routing_rank FROM complaint_normalizations WHERE complaint_id = %s",
+                (complaint_id,)
+            )
+            row = cur.fetchone()
+            if not row or not row[0]:
+                print(f"❌ [DB] 민원 {complaint_id}의 routing_rank가 없습니다.")
+                return None
+            # JSON 파싱 (DB에 텍스트로 저장되어 있다고 가정)
+            routing_data = row[0]
+            if isinstance(routing_data, str):
+                import json
+                routing_data = json.loads(routing_data)
+            # related_case 추출 (리스트인 경우 첫 번째 요소 사용, 객체인 경우 바로 사용)
+            target_core_request = None
+            if isinstance(routing_data, list) and len(routing_data) > 0:
+                target_core_request = routing_data[0].get("related_case")
+            elif isinstance(routing_data, dict):
+                target_core_request = routing_data.get("related_case")
+            if not target_core_request:
+                print(f"⚠️ [DB] routing_rank에서 related_case를 찾을 수 없습니다.")
+                return None
+            print(f"🔎 [DB] 참고할 과거 민원 키워드: {target_core_request}")
+            # 2단계 & 3단계: 키워드가 일치하는 과거 민원의 답변 조회
+            # (조건: 현재 민원 제외, 답변이 있는 것만)
+            sql = """
+                SELECT c.answer
+                FROM complaint_normalizations cn
+                JOIN complaints c ON cn.complaint_id = c.id
+                WHERE cn.core_request = %s
+                  AND c.id != %s
+                  AND c.answer IS NOT NULL
+                  AND c.answer != ''
+                LIMIT 1
+            """
+            cur.execute(sql, (target_core_request, complaint_id))
+            ref_row = cur.fetchone()
+            if ref_row:
+                print("✅ [DB] 유사한 과거 답변을 찾았습니다.")
+                return ref_row[0]
+            else:
+                print("⚠️ [DB] 키워드는 찾았으나, 답변이 달린 과거 사례가 없습니다.")
+                return None
+    except Exception as e:
+        print(f"❌ [DB] 과거 답변 조회 실패: {e}")
+        return None
+
+def save_chat_log(complaint_id: int, role: str, message: str):
+    """채팅 로그 저장"""
+    conn = get_db_connection()
+    if not conn: return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO complaint_chat_logs (complaint_id, role, message) VALUES (%s, %s, %s)",
+                (complaint_id, role, message)
+            )
+            conn.commit()
+    except Exception as e:
+        print(f"❌ 채팅 로그 저장 실패: {e}")
+    finally:
+        conn.close()
+
+def get_chat_logs(complaint_id: int) -> List[Dict]:
+    """과거 채팅 기록 조회"""
+    conn = get_db_connection()
+    if not conn: return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT role, message FROM complaint_chat_logs WHERE complaint_id = %s ORDER BY id ASC",
+                (complaint_id,)
+            )
+            rows = cur.fetchall()
+            return [{"role": row[0], "content": row[1]} for row in rows]
+    except Exception as e:
+        print(f"❌ 채팅 로그 조회 실패: {e}")
+        return []
+    finally:
+        conn.close()
