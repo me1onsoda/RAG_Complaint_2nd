@@ -16,10 +16,12 @@ import com.smart.complaint.routing_system.applicant.entity.ChildComplaint;
 import com.smart.complaint.routing_system.applicant.entity.Complaint;
 import com.smart.complaint.routing_system.applicant.entity.ComplaintNormalization;
 import com.smart.complaint.routing_system.applicant.entity.ComplaintReroute;
+import com.smart.complaint.routing_system.applicant.entity.Department;
 import com.smart.complaint.routing_system.applicant.repository.ChildComplaintRepository;
 import com.smart.complaint.routing_system.applicant.repository.ComplaintNormalizationRepository;
 import com.smart.complaint.routing_system.applicant.repository.ComplaintRepository;
 import com.smart.complaint.routing_system.applicant.repository.ComplaintRerouteRepository;
+import com.smart.complaint.routing_system.applicant.repository.DepartmentRepository;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -51,6 +53,7 @@ public class ComplaintService {
     private final ComplaintRepository complaintRepository;
     private final ComplaintRerouteRepository rerouteRepository;
     private final ChildComplaintRepository childComplaintRepository;
+    private final DepartmentRepository departmentRepository;
     private final ComplaintNormalizationRepository complaintNormalizationRepository;
     private final RestTemplate restTemplate;
 
@@ -249,6 +252,28 @@ public class ComplaintService {
                 analysis.originalAnalysis().keywords(),
                 analysis.originalAnalysis().category());
 
+        Complaint complaint = complaintRepository.findById(complaintId)
+                .orElseThrow(() -> new BusinessException(ErrorMessage.COMPLAINT_NOT_FOUND));
+
+        // 2. 문자열 파싱: "도로과"만 추출
+        String targetDeptName = "미지정";
+        if (!analysis.recommendations().isEmpty()) {
+            String fullDept = analysis.recommendations().get(0).recommendedDept();
+            String[] parts = fullDept.split(" ");
+            targetDeptName = parts[parts.length - 1].trim();
+        }
+
+        Long nullDepartment = departmentRepository.findByName("미정")
+                .map(Department::getId)
+                .orElse(1L);
+        // 2. ID 조회 및 세팅 (조회 실패 시 0L)
+        Long departmentId = departmentRepository.findByName(targetDeptName)
+                .map(Department::getId)
+                .orElse(nullDepartment);
+
+        complaint.setDepartment(departmentId);
+        complaint.setAiPredicted(departmentId);
+
         complaintNormalizationRepository.insertNormalization(
                 complaintId,
                 analysis.recommendations().isEmpty() ? "미지정" : analysis.recommendations().get(0).recommendedDept(),
@@ -290,7 +315,7 @@ public class ComplaintService {
                 // 3. 추출한 String 본문을 파싱 로직으로 전달 id는 민원의 PK
                 processAiResponse(responseBody, id);
 
-                log.info("AI 분석 및 정규화 데이터 저장 성공: {}", responseBody);
+                log.info("AI 분석 및 정규화 데이터 저장 성공");
             } else {
                 log.warn("AI 분석 서버 응답은 성공이나 상태 코드가 2xx가 아님: {}", response.getStatusCode());
             }

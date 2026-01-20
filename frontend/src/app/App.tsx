@@ -10,6 +10,7 @@ import { RerouteRequestsPage } from './components/RerouteRequestsPage';
 import { KnowledgeBaseListPage } from './components/KnowledgeBaseListPage';
 import { KnowledgeBaseDetailPage } from './components/KnowledgeBaseDetailPage';
 import { UserManagementPage } from './components/UserManagementPage';
+import HeatmapPage from './components/HeatMap';
 import { Toaster } from './components/ui/sonner';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import ApplicantLoginPage from './components/applicant/ApplicantLoginPage';
@@ -35,7 +36,8 @@ type Page =
   | { type: 'knowledge-base' }
   | { type: 'knowledge-base-detail'; id: string }
   | { type: 'user-management' }
-  | { type: 'settings' };
+  | { type: 'settings' }
+  | { type: 'heatmap' };
 
 export default function App() {
   return (
@@ -64,25 +66,25 @@ function AppContent() {
         try {
           // 1. 백엔드에 내 정보 요청 (/api/agent/me)
           const userData = await AgentComplaintApi.getMe();
-          
+
           // 2. 데이터가 있으면 역할 복구 (userData에 role이 있다고 가정)
           // 백엔드는 "ADMIN", "AGENT" 대문자로 줌 -> 소문자로 변환 필요
           // (Typescript 에러가 난다면 any로 감싸거나 DTO를 수정해야 함)
           const serverRole = (userData as any).role;
-          const serverName = (userData as any).displayName; 
+          const serverName = (userData as any).displayName;
           const serverDept = (userData as any).departmentName;
 
           if (serverRole) {
-             const roleLower = serverRole.toLowerCase() as 'agent' | 'admin';
-             setUserRole(roleLower);
-             setUserName(serverName || '알 수 없음');
-             setDepartmentName(serverDept || '소속 없음'); // [추가] 부서명 설정
-             
-             // 3. 로그인 페이지에 있었다면 대시보드나 목록으로 이동
-             if (currentPage.type === 'login') {
-                if (roleLower === 'admin') setCurrentPage({ type: 'dashboard' });
-                else setCurrentPage({ type: 'complaints' });
-             }
+            const roleLower = serverRole.toLowerCase() as 'agent' | 'admin';
+            setUserRole(roleLower);
+            setUserName(serverName || '알 수 없음');
+            setDepartmentName(serverDept || '소속 없음'); // [추가] 부서명 설정
+
+            // 3. 로그인 페이지에 있었다면 대시보드나 목록으로 이동
+            if (currentPage.type === 'login') {
+              if (roleLower === 'admin') setCurrentPage({ type: 'dashboard' });
+              else setCurrentPage({ type: 'complaints' });
+            }
           }
         } catch (error) {
           console.log("세션 만료 또는 비로그인 상태");
@@ -135,6 +137,8 @@ function AppContent() {
       setCurrentPage({ type: 'user-management' });
     } else if (page === 'settings') {
       setCurrentPage({ type: 'settings' });
+    } else if (page === 'heatmap') {
+      setCurrentPage({ type: 'heatmap' });
     }
   };
 
@@ -185,16 +189,16 @@ function AppContent() {
         // 사용자 권한이 없으면 로그인 페이지로, 있으면 레이아웃과 해당 페이지로 이동
         !userRole ? (
           <LoginPage onLogin={(role) => {
-             // 로그인 성공 시 로직도 업데이트(이름을 로그인 응답에서 받거나, getMe를 다시 호출)
-             setUserRole(role);
-             // 임시로 일단 getMe를 다시 호출해서 이름을 채움
-             AgentComplaintApi.getMe().then(u => {
-         setUserName((u as any).displayName);
-         setDepartmentName((u as any).departmentName); // [추가]
-       });
-             
-             if(role === 'admin') setCurrentPage({type:'dashboard'});
-             else setCurrentPage({type:'complaints'});
+            // 로그인 성공 시 로직도 업데이트(이름을 로그인 응답에서 받거나, getMe를 다시 호출)
+            setUserRole(role);
+            // 임시로 일단 getMe를 다시 호출해서 이름을 채움
+            AgentComplaintApi.getMe().then(u => {
+              setUserName((u as any).displayName);
+              setDepartmentName((u as any).departmentName); // [추가]
+            });
+
+            if (role === 'admin') setCurrentPage({ type: 'dashboard' });
+            else setCurrentPage({ type: 'complaints' });
           }} />
         ) : (
           <Layout
@@ -209,7 +213,7 @@ function AppContent() {
             }
             onNavigate={handleNavigate}
             userRole={userRole}
-            userName={userName}     
+            userName={userName}
             onLogout={handleLogout}
           >
             {currentPage.type === 'complaints' && (
@@ -248,6 +252,9 @@ function AppContent() {
             )}
             {currentPage.type === 'user-management' && (
               <UserManagementPage />
+            )}
+            {currentPage.type === 'heatmap' && (
+              <HeatmapPage />
             )}
             {/* {currentPage.type === 'settings' && (
               <div className="flex items-center justify-center h-full">

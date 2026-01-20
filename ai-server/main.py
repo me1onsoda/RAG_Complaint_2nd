@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request
+from openai import OpenAI
 from pydantic import BaseModel
 from app.services import llm_service
 from app import database
@@ -16,14 +17,9 @@ import textwrap
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from datetime import datetime
-import google.generativeai as genai
 from sqlalchemy import Integer, create_engine, Column, BigInteger, String, Text, DateTime
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.dialects.postgresql import JSONB
-import google.generativeai as genai
-from google import genai
-from google.genai import types
 
 app = FastAPI(title="Complaint Analyzer AI")
 
@@ -37,30 +33,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def get_embedding(text):
+def get_embedding(text: str):
     try:
-        # text-embedding-004 모델 사용
-        # output_dimensionality를 1024로 설정하여 mxbai와 규격 맞춤
-        result = client.models.embed_content(
-            model="text-embedding-004",
-            contents=text,
-            config=types.EmbedContentConfig(
-                task_type="RETRIEVAL_DOCUMENT",
-                output_dimensionality=1024  # 1024차원 강제 고정
-            )
+        response = client.embeddings.create(
+            model="text-embedding-3-large",
+            input=text,
+            dimensions=1024
         )
-        
-        # 임베딩 값 추출 (리스트 형태)
-        embedding_vector = result.embeddings[0].values
-        
-        # 서버 로그에서 차원 확인 (디버깅용)
-        print(f"DEBUG: Generated embedding with dimension: {len(embedding_vector)}")
-        
+
+        embedding_vector = response.data[0].embedding
+
+        # 디버깅용 차원 확인
+        print(f"임베딩된 차원: {len(embedding_vector)}")
+
         return embedding_vector
+
     except Exception as e:
-        print(f"Google Embedding Error: {e}")
+        print(f"OpenAI Embedding Error: {e}")
         return None
 
 # 테스트

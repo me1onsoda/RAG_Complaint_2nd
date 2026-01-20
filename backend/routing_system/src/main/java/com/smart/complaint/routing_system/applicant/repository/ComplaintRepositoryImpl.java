@@ -63,6 +63,7 @@ public class ComplaintRepositoryImpl implements ComplaintRepositoryCustom {
         private static final Logger log = LoggerFactory.getLogger(ComplaintRepositoryImpl.class);
         private final JPAQueryFactory queryFactory;
         private final QComplaintNormalization normalization = QComplaintNormalization.complaintNormalization;
+        private final QDepartment department = QDepartment.department;
         private final QUser user = QUser.user;
 
         @Override
@@ -175,8 +176,10 @@ public class ComplaintRepositoryImpl implements ComplaintRepositoryCustom {
                                                 complaint.addressText,
                                                 complaint.status, // Enum 타입 (예: RECEIVED)
                                                 complaint.createdAt, // LocalDateTime 타입
-                                                complaint.updatedAt))
+                                                complaint.updatedAt,
+                                                department.name))
                                 .from(complaint)
+                                .leftJoin(department).on(complaint.currentDepartmentId.eq(department.id))
                                 .where(
                                                 complaint.applicantId.eq(applicantId),
                                                 titleContains(keyword))
@@ -616,7 +619,7 @@ public class ComplaintRepositoryImpl implements ComplaintRepositoryCustom {
                 @SuppressWarnings("unchecked")
                 List<Object[]> results = entityManager.createNativeQuery(sql).getResultList();
 
-                log.info("쿼리 결과물: "+results.toString());
+                log.info("쿼리 결과물: " + results.toString());
 
                 // 3. Object 배열 결과를 KeywordsDto(record) 리스트로 변환
                 return results.stream()
@@ -625,5 +628,28 @@ public class ComplaintRepositoryImpl implements ComplaintRepositoryCustom {
                                                 ((Number) row[1]).longValue() // count (value)
                                 ))
                                 .collect(Collectors.toList());
+        }
+
+        @Override
+        public ComplaintDetailDto findComplaintDetailById(Long id) {
+
+                return queryFactory
+                                .select(Projections.constructor(ComplaintDetailDto.class,
+                                                complaint.id,
+                                                complaint.title,
+                                                complaint.body,
+                                                complaint.answer,
+                                                complaint.addressText,
+                                                complaint.status,
+                                                complaint.createdAt,
+                                                complaint.updatedAt,
+                                                department.name, // d.name 매핑
+                                                Expressions.constant(new ArrayList<ChildComplaintDto>()) // children 필드는
+                                                                                                         // 빈 리스트로 초기화
+                                ))
+                                .from(complaint)
+                                .join(department).on(complaint.currentDepartmentId.eq(department.id))
+                                .where(complaint.id.eq(id))
+                                .fetchOne();
         }
 }

@@ -158,12 +158,11 @@ public class ApplicantService {
     public ComplaintDetailDto getComplaintDetails(Long complaintId) {
 
         log.info("사용자: " + complaintId);
-        Complaint foundComplaint = complaintRepository.findById(complaintId)
-                .orElseThrow(() -> new BusinessException(ErrorMessage.COMPLAINT_NOT_FOUND));
+        ComplaintDetailDto foundComplaint = complaintRepository.findComplaintDetailById(complaintId);
 
         List<ChildComplaintDto> childComplaintDto = complaintRepository.findChildComplaintsByParentId(complaintId);
 
-        return ComplaintDetailDto.from(foundComplaint, childComplaintDto);
+        return ComplaintDetailDto.withChildren(foundComplaint, childComplaintDto);
     }
 
     public List<ComplaintListDto> getAllComplaints(String applicantId, String keyword) {

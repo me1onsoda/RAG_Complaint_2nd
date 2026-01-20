@@ -23,11 +23,11 @@ interface Complaint {
 
 const STATUS_LABELS = {
   RECEIVED: '접수됨',
-  RECOMMENDED: '재이관 대기중',
+  RECOMMENDED: '이관 대기중',
   IN_PROGRESS: '처리중',
   RESOLVED: '답변완료',
   CLOSED: '종결',
-  CANCELED: '취소/반려',
+  CANCELED: '취소',
 };
 
 const STATUS_COLORS = {

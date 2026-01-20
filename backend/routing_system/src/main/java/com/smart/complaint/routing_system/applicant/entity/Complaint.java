@@ -165,4 +165,12 @@ public class Complaint {
         this.status = ComplaintStatus.CANCELED;
     }
 
+    public void setDepartment(Long id) {
+        this.currentDepartmentId = id;
+    }
+
+    public void setAiPredicted(Long departmentId) {
+        this.aiPredictedDepartmentId = departmentId;
+    }
+
 }
